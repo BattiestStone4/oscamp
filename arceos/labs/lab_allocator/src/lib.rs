@@ -3,41 +3,63 @@
 #![no_std]
 #![allow(unused_variables)]
 
-use allocator::{BaseAllocator, ByteAllocator, AllocResult};
+use allocator::{AllocError, BaseAllocator, ByteAllocator, AllocResult};
 use core::ptr::NonNull;
 use core::alloc::Layout;
+use slab_allocator::Heap;
 
-pub struct LabByteAllocator;
+pub struct LabByteAllocator {
+    inner: Option<Heap>,
+}
 
 impl LabByteAllocator {
     pub const fn new() -> Self {
-        Self
+        Self { inner: None }
+    }
+
+    fn inner_mut(&mut self) -> &mut Heap {
+        self.inner.as_mut().unwrap()
+    }
+
+    fn inner(&self) -> &Heap {
+        self.inner.as_ref().unwrap()
     }
 }
 
 impl BaseAllocator for LabByteAllocator {
     fn init(&mut self, start: usize, size: usize) {
-        unimplemented!();
+        unsafe {
+            self.inner = Some(Heap::new(start, size));
+        }
     }
     fn add_memory(&mut self, start: usize, size: usize) -> AllocResult {
-        unimplemented!();
+        unsafe {
+            self.inner_mut().add_memory(start, size);
+        }
+        Ok(())
     }
 }
 
 impl ByteAllocator for LabByteAllocator {
     fn alloc(&mut self, layout: Layout) -> AllocResult<NonNull<u8>> {
-        unimplemented!();
+        //log::info!("layout: {:?}", layout);
+        self.inner_mut()
+        .allocate(layout)
+        .map_err(|_| AllocError::NoMemory)
     }
     fn dealloc(&mut self, pos: NonNull<u8>, layout: Layout) {
-        unimplemented!();
+        unsafe {
+            self.inner_mut()
+            .deallocate(pos.as_ptr() as usize, layout)
+        }
     }
     fn total_bytes(&self) -> usize {
-        unimplemented!();
+        self.inner().total_bytes()
     }
     fn used_bytes(&self) -> usize {
-        unimplemented!();
+        self.inner().used_bytes()
     }
     fn available_bytes(&self) -> usize {
-        unimplemented!();
+        self.inner().available_bytes()
     }
 }
